@@ -72,7 +72,7 @@ This application is distributed over the 7 nodes, which means we can run upto 7 
 
 5. Access the node7 instance of the application on the browser at http://localhost:8081/threads
 
-- **Docker issues:**
+## Docker issues
 
 1. Fixes for common Docker issues can be found in the Troubleshooting Docker section [here](https://github.com/jpmorganchase/quorum-examples)
 
