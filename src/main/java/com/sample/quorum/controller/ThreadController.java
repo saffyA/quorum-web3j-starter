@@ -29,6 +29,10 @@ public class ThreadController {
     private Map<String,String> allNodeNamesToPublicKeysMap = new HashMap<String, String>(){{
         put("node1","BULeR8JyUWhiuuCMU/HLA0Q5pzkYT+cHII3ZKBey3Bo=");
         put("node2","QfeDAys9MPDs2XHExtc84jKGHxZg/aj52DTh0vtA3Xc=");
+        put("node3","1iTZde/ndBHvzhcl7V68x44Vx7pl8nwx9LqnM/AfJUg=");
+        put("node4","oNspPPgszVUFw0qmGFfWwh1uxVUXgvBxleXORHj07g8=");
+        put("node5","R56gy4dn24YOjwyesTczYa8m5xhP6hF2uTMCju/1xkY=");
+        put("node6","UfNSeSGySeKg11DVNEnqrUtxYRVor4+CvluI8tVv62Y=");
         put("node7","ROAZBWtSacxXQrOe3FGAqJDyJjFePR5ce4TSIzmJ0Bc=");
     }};
 
@@ -51,16 +55,10 @@ public class ThreadController {
 
         //Create filter to extract out sendContractAddress events from all Thread contracts
         //Keccak hash of event signature is provided as a topic to filter out specifically sendContractAddress events only i.e new threads
-        EthFilter filterToExtractNewThreads = new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST,Collections.emptyList()).addSingleTopic(sendContractAddressEventTopic);
-
+        EthFilter filterToExtractNewThreads = new EthFilter(DefaultBlockParameterName.EARLIEST, DefaultBlockParameterName.LATEST, Collections.emptyList()).addSingleTopic(sendContractAddressEventTopic);
 
         //Subscribe to all sendContractAddress events based on filter created above and read log of each event
         quorumConnection.getAdmin().ethLogFlowable(filterToExtractNewThreads).subscribe(messageLog -> {
-            //          System.out.println(log.getData());
-            //          System.out.println(log.getTransactionHash());
-            //          System.out.println(log.getTopics());
-            //          System.out.println(log.getBlockNumber());
-            //          System.out.println(messageLog.toString());
 
             //Extract sendContractAddress event parameters defined in Thread contract
             EventValues sendContractAddressEventValues = staticExtractEventParameters(Thread.SENDCONTRACTADDRESS_EVENT, messageLog);
@@ -74,9 +72,6 @@ public class ThreadController {
             //Create new ThreadModel instance to save new thread details - contract address, participants
             ThreadModel threadModel = new ThreadModel(sendContractAddressEventResponse.contractAddress,sendContractAddressEventResponse.participants);
             allThreads.put(sendContractAddressEventResponse.participants,threadModel);
-
-            System.out.println("contractaddress " + sendContractAddressEventResponse.contractAddress);
-            System.out.println("participants " + sendContractAddressEventResponse.participants);
         });
 
 
@@ -89,11 +84,6 @@ public class ThreadController {
 
         //Subscribe to all sendMessage events based on filter created above and read log of each event
         quorumConnection.getAdmin().ethLogFlowable(filterToExtractNewMessagesFromExistingThreads).subscribe(messageLog -> {
-            //          System.out.println(log.getData());
-            //          System.out.println(log.getTransactionHash());
-            //          System.out.println(log.getTopics());
-            //          System.out.println(log.getBlockNumber());
-            //          System.out.println(messageLog.toString());
 
             //Extract sendMessage event parameters defined in Thread contract
             EventValues messageEventValues = staticExtractEventParameters(Thread.SENDMESSAGE_EVENT, messageLog);
@@ -103,9 +93,6 @@ public class ThreadController {
             messageTypedResponse.participants= (String) messageEventValues.getNonIndexedValues().get(0).getValue();
             messageTypedResponse.message = (String) messageEventValues.getNonIndexedValues().get(1).getValue();
             messageTypedResponse.messageSender = (String) messageEventValues.getNonIndexedValues().get(2).getValue();
-            System.out.println("participants" + messageTypedResponse.participants);
-            System.out.println("message " + messageTypedResponse.message);
-            System.out.println("messageSender " + messageTypedResponse.messageSender);
 
             //Store map of sender->message in ThreadModel Instance in allThreads map - identified by thread participants
             Map<String,String> messageSenderMap = new HashMap<String, String>();
@@ -138,7 +125,6 @@ public class ThreadController {
     */
     @PostMapping("/threads")
     public String createNewThread(@RequestParam("message") String message,@RequestParam("threadParticipants") ArrayList<String> threadParticipants, Model model) throws Exception {
-
 
         //Check if node has included itself in participant list
         if(!threadParticipants.contains(quorumConnection.getNode()))
@@ -173,18 +159,18 @@ public class ThreadController {
         }
 
         //Create ClientTransactionManager object by passing QuorumConnection parameters and privateFor - this will handle privacy requirements
-        ClientTransactionManager clientTransactionManager = new ClientTransactionManager(quorumConnection.getQuorum(),quorumConnection.getNodeAddress(),quorumConnection.getNodeKey(),privateFor, 100,1000);
+        ClientTransactionManager clientTransactionManager = new ClientTransactionManager(quorumConnection.getQuorum(), quorumConnection.getNodeAddress(), quorumConnection.getNodeKey(), privateFor, 100, 1000);
 
         //Deploy the new thread contract. This returns a thread contract object
-        Thread threadContract = Thread.deploy(quorumConnection.getQuorum(),clientTransactionManager,BigInteger.valueOf(0), BigInteger.valueOf(100000000)).send();
+        Thread threadContract = Thread.deploy(quorumConnection.getQuorum(), clientTransactionManager, BigInteger.valueOf(0), BigInteger.valueOf(100000000)).send();
 
         //Extract contract address from thread contract object obtained in 2.d
         String newThreadContractAddress = threadContract.getContractAddress();
 
-        //Call the sendContractAddress event in thread contract to inform participants of new thread. Parameters sent - contract address, participants
+        //Call the sendContractAddress event in thread contract to inform participants of new thread contract address and participants
         TransactionReceipt startThreadTransactionReceipt = threadContract.startThread(threadParticipantsString,newThreadContractAddress).send();
 
-        //Call the sendMessage event in thread contract to inform participants of new message in this thread. Parameters sent - participants, message, sender
+        //Call the sendMessage event in thread contract to inform participants of new message and sender
         TransactionReceipt sendMessageTransactionReceipt = threadContract.sendMessageToThread(message,quorumConnection.getNode()).send();
 
         return showThreads(model);
@@ -219,14 +205,25 @@ public class ThreadController {
             privateFor.add(allNodeNamesToPublicKeysMap.get(threadParticipant));
 
         //Create ClientTransactionManager object by passing QuorumConnection parameters and privateFor - this will handle privacy requirements
-        ClientTransactionManager clientTransactionManager = new ClientTransactionManager(quorumConnection.getQuorum(),quorumConnection.getNodeAddress(),quorumConnection.getNodeKey(),privateFor, 100,1000);
+        ClientTransactionManager clientTransactionManager = new ClientTransactionManager(quorumConnection.getQuorum(), quorumConnection.getNodeAddress(), quorumConnection.getNodeKey(), privateFor, 100, 1000);
 
         //Load the thread contract based on contract address
-        Thread threadContract = Thread.load(contractAddress,quorumConnection.getQuorum(),clientTransactionManager,BigInteger.valueOf(0), BigInteger.valueOf(100000000));
+        Thread threadContract = Thread.load(contractAddress, quorumConnection.getQuorum(), clientTransactionManager, BigInteger.valueOf(0), BigInteger.valueOf(100000000));
 
-        //Call the sendMessage event in the contract to inform participants of new message in this thread. Parameters sent - participants, message, sender
+        //Call the sendMessage event in the contract to inform participants of new message and sender.
         TransactionReceipt sendMessageTransactionReceipt = threadContract.sendMessageToThread(newMessage,quorumConnection.getNode()).send();
 
         return showThreads(model);
     }
 }
+//          System.out.println(log.getData());
+//          System.out.println(log.getTransactionHash());
+//          System.out.println(log.getTopics());
+//          System.out.println(log.getBlockNumber());
+//          System.out.println(messageLog.toString());
+
+//        System.out.println("participants" + messageTypedResponse.participants);
+//        System.out.println("message " + messageTypedResponse.message);
+//        System.out.println("messageSender " + messageTypedResponse.messageSender);
+//        System.out.println("contractaddress " + sendContractAddressEventResponse.contractAddress);
+//        System.out.println("participants " + sendContractAddressEventResponse.participants);
